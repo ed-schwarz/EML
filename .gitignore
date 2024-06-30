@@ -1,0 +1,7 @@
+data/
+EMNIST/
+raw/
+*.zip
+/data/
+data/*
+/data/*
