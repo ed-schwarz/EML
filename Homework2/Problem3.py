@@ -298,12 +298,90 @@ def display_images_train(letter_class, model):
     plt.tight_layout()
     plt.show() 
 
+def display_images_train_specific(letter_class_true, letter_class_predict, model):
+    # select test image indices for illustration
+    num_images = 10
+    classes = val_data.classes
+    letter_label = classes.index(letter_class_true)
+    indices = val_data.targets == letter_label
+    val_data.data, val_data.targets = val_data.data[indices], val_data.targets[indices]
+    indexes = np.arange(len(val_data))
+    # get the images and labels from the dataloader
+    #np.random.shuffle(indexes)
+
+    images = val_data.data[indexes[:]].float()/255
+    labels = val_data.targets[indexes[:]]
+
+
+
+    # reshape the images for the model
+    images = images.view(-1, 1, 28, 28)
+    images = images.cuda()
+
+
+    # predict classes in the test set
+    #model.eval()
+
+    with torch.no_grad():
+        yhat = model(images)
+    _, labels_hat = torch.max(yhat, 1)
+
+    images = torchvision.transforms.functional.rotate(images, -90)
+    images = torchvision.transforms.functional.hflip(images)
+
+    
+    letter_label_predict = classes.index(letter_class_predict)
+    indices_predict = labels_hat == letter_label_predict
+    indices_predict = indices_predict.cpu().numpy()
+    labels_hat = labels_hat[indices_predict]
+    images = images[indices_predict]
+    labels = labels.cpu().numpy()
+    labels = labels[indices_predict]
+    indexes = np.arange(len(images))
+    np.random.shuffle(indexes)
+    images = images[indexes[:num_images]].float()/255
+    labels = labels[indexes[:num_images]]
+
+
+    images = images.cpu().numpy()
+    
+
+
+    # convert to numpy arrays for plotting
+    
+    #labels_hat = labels_hat.numpy()    
+    
+    # creating plot layout
+
+    num_cols = 5
+    num_rows = num_images // num_cols + int(num_images % num_cols != 0)
+    if((len(images)-1) <= 10):
+        num_cols = len(images)-1
+        num_rows = 1
+
+    
+
+
+
+    # plot
+    fig, ax = plt.subplots(num_rows, num_cols, figsize=(10, num_rows * 2))
+    ax = ax.ravel()  # flatten the array of axes if it's multidimensional
+    
+
+    for i in range(len(images)-1):
+        # plot the image
+        ax[i].imshow(images[i].reshape(28, 28), cmap=plt.cm.gray)
+        ax[i].set_title(f"True Label: {labels[i]}\nTrue Class: {classes[labels[i]]}\nPredict Label: {labels_hat[i]}\nPredict Class: {classes[labels_hat[i]]}")
+    plt.tight_layout()
+    plt.show() 
+ 
 
 def display_confusion_matrix(model):
     #--------------------------------------------------------------------------
     # get the images and labels from the dataloader
     images = val_data.data.float()/255 # norm. to [0,1] required here, even though ToTensor() is used above
     true_labels = val_data.targets
+    classes = val_data.classes
 
     images = images.view(-1, 1, 28, 28)
     images = images.cuda()
@@ -328,6 +406,57 @@ def display_confusion_matrix(model):
     # plot confusion matrix
     disp = ConfusionMatrixDisplay.from_predictions(labels, labels_hat, cmap=plt.cm.Blues, display_labels=classes[1:])
     plt.show() 
+
+
+def display_max_misprediction(model):
+    #--------------------------------------------------------------------------
+    # get the images and labels from the dataloader
+    images = val_data.data.float()/255 # norm. to [0,1] required here, even though ToTensor() is used above
+    true_labels = val_data.targets
+    classes = val_data.classes
+
+    images = images.view(-1, 1, 28, 28)
+    images = images.cuda()
+    indexes = np.arange(len(val_data))
+    # evaluate model
+    with torch.no_grad():
+        yhat = model(images)
+    _, labels_hat = torch.max(yhat, 1)
+    # reshape the images for the model
+
+
+    # convert to numpy arrays for plotting
+    labels = true_labels.numpy()
+    labels_hat = labels_hat.cpu().numpy()
+    
+    # compute confusion matrix for test set
+    cm = confusion_matrix(labels, labels_hat)
+
+    
+    for i in range(len(classes)-1):
+        cm[i, i] = 0
+
+
+    max_array = cm.max(0)
+    max_value = max_array.max(0)
+    index_max = np.where(cm == max_value)
+
+    print(index_max)
+    print("Highest misprediction: ", max_value, f" at True {classes[int(index_max[0])]} and Predicted {classes[int(index_max[1])]}")
+    display_images_train_specific(classes[int(index_max[0])], classes[int(index_max[1])], model)
+
+
+
+
+
+
+
+    #print(f"Accuracy on the validation/test set: {accuracy * 100:.2f}%")
+    # plot confusion matrix
+    #disp = ConfusionMatrixDisplay.from_predictions(labels, labels_hat, cmap=plt.cm.Blues, display_labels=classes[1:])
+    #plt.show() 
+
+
 
 
 
@@ -398,6 +527,9 @@ else:
 
 #item f)
 #display_images_train('a', model)
+
+#item g)
+display_max_misprediction(model)
 
 
 
